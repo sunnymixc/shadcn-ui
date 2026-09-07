@@ -79,14 +79,39 @@ export function formatOklch({ l, c, h, a }: Oklch): string {
 //    此时 var(--primary) 不会回退到默认令牌，而是变成 inherit/initial，
 //    按钮会直接透明消失，整页看起来像坏了。
 const SAFE_OKLCH_RE = /^oklch\([\d.]+ [\d.]+ [\d.]+(?: \/ [\d.]+%)?\)$/
-const SAFE_RADIUS_RE = /^[\d.]+rem$/
+// radius 与 control-height 的字面形态相同，共用一条正则
+const SAFE_REM_RE = /^[\d.]+rem$/
+
+/** 编辑器滑杆范围：28px – 48px */
+export const CONTROL_HEIGHT_MIN = 1.75
+export const CONTROL_HEIGHT_MAX = 3
+
+// 注入前的硬性安全区间，刻意比滑杆宽 —— 手工写进 localStorage 的值，
+// 只要还落在「能用」的范围内就接受。
+const SAFE_CONTROL_HEIGHT_MIN = 1
+const SAFE_CONTROL_HEIGHT_MAX = 4
 
 export function isSafeOklch(value: string): boolean {
   return SAFE_OKLCH_RE.test(value)
 }
 
 export function isSafeRadius(value: string): boolean {
-  return SAFE_RADIUS_RE.test(value)
+  return SAFE_REM_RE.test(value)
+}
+
+// ⚠️ 与 isSafeRadius 的关键区别：这里必须再做数值区间校验，光靠正则不够。
+// 值来自 localStorage，"0rem" 能通过正则，但会让所有按钮和输入框塌成一条线 ——
+// 包括「全部重置」按钮本身，用户就只剩「去控制台清 localStorage」这条路了。
+// radius 没这个风险（极端值只是丑，页面仍可操作），所以不对称是有意的。
+// 上下界必须与 index.html 防闪脚本里的那份保持一致。
+export function isSafeControlHeight(value: string): boolean {
+  if (!SAFE_REM_RE.test(value)) return false
+  const n = parseFloat(value)
+  return (
+    Number.isFinite(n) &&
+    n >= SAFE_CONTROL_HEIGHT_MIN &&
+    n <= SAFE_CONTROL_HEIGHT_MAX
+  )
 }
 
 /** 规范化：解析再序列化，顺便过一遍安全正则。任何一步失败返回 null。 */
@@ -97,7 +122,8 @@ export function normalizeOklch(input: string): string | null {
   return isSafeOklch(out) ? out : null
 }
 
-export function parseRadius(input: string): number | null {
+/** 解析 "2.25rem" → 2.25。radius / control-height 共用。 */
+export function parseRem(input: string): number | null {
   const m = /^([\d.]+)rem$/.exec(input.trim())
   if (!m) return null
   const v = parseFloat(m[1])
@@ -106,4 +132,12 @@ export function parseRadius(input: string): number | null {
 
 export function formatRadius(rem: number): string {
   return `${round(clamp(rem, 0, 2), 3)}rem`
+}
+
+// ⚠️ 4 位小数，不是 formatRadius 的 3 位：步长 0.0625rem 的取值是
+// 1.8125 / 1.9375 这类四位小数，round(…, 3) 会把 1.8125rem 截成 1.813rem
+// （29.008px），高度就不再落在整 px 上，边框和 TabsTrigger 的
+// h-[calc(100%-1px)] 会发虚。
+export function formatControlHeight(rem: number): string {
+  return `${round(clamp(rem, CONTROL_HEIGHT_MIN, CONTROL_HEIGHT_MAX), 4)}rem`
 }

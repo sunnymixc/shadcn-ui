@@ -33,7 +33,16 @@
           // 非法的 oklch 会触发 "invalid at computed-value time"，
           // 那时 var(--primary) 不会回退到默认值而是变成 initial，按钮会直接消失。
           var OKLCH = /^oklch\([\d.]+ [\d.]+ [\d.]+( \/ [\d.]+%)?\)$/
-          var RADIUS = /^[\d.]+rem$/
+          var REM = /^[\d.]+rem$/
+          // 高度必须再做数值区间校验：仅正则的话 "0rem" 能过，结果是所有按钮和
+          // 输入框塌成一条线 —— 连「全部重置」按钮都点不到，用户只剩去控制台清
+          // localStorage 这条路。上下界与 src/lib/color.ts 的
+          // isSafeControlHeight 保持一致。
+          function rem(v, min, max) {
+            if (typeof v !== "string" || !REM.test(v)) return false
+            var n = parseFloat(v)
+            return n >= min && n <= max
+          }
           var TOKENS = /^(background|foreground|card|card-foreground|popover|popover-foreground|primary|primary-foreground|secondary|secondary-foreground|muted|muted-foreground|accent|accent-foreground|destructive|destructive-foreground|border|input|ring|chart-[1-5])$/
 
           function block(selector, obj) {
@@ -51,10 +60,17 @@
           // 选择器必须与 buildRuntimeCss 完全一致，靠特异度 (0,2,1) 压过
           // index.css 里裸写的 :root / .dark，而不是靠文档顺序 ——
           // Vite 之后还会往 head 里插 css，顺序是靠不住的。
+          // radius 传 0..Infinity 以保持既有行为（TS 侧 isSafeRadius 也不限量级）
+          var globals = ""
+          if (rem(cfg.radius, 0, Infinity)) {
+            globals += "--radius:" + cfg.radius + ";"
+          }
+          if (rem(cfg.controlHeight, 1, 4)) {
+            globals += "--control-height:" + cfg.controlHeight + ";"
+          }
+
           var css =
-            (RADIUS.test(cfg.radius || "")
-              ? "html:root{--radius:" + cfg.radius + ";}"
-              : "") +
+            (globals ? "html:root{" + globals + "}" : "") +
             block("html:root:not(.dark)", cfg.light) +
             block("html:root.dark", cfg.dark)
           if (!css) return

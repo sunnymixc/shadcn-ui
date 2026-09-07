@@ -53,6 +53,11 @@
   /* 告诉浏览器当前配色，原生控件（range 滑杆、滚动条）才会切换深浅皮肤 */
   color-scheme: light;
   --radius: 0.625rem;
+  /* 单行控件（Button / Input / SelectTrigger / TabsList）的基准高度。
+     2.25rem = 36px，等于改造前写死的 h-9，所以引入这组令牌不改变现有外观。
+     不放 @theme inline —— Tailwind v4 的 h-* 只认 --spacing 比例，没有
+     --height-* namespace，组件侧是用 h-(--control-height) 直接引用变量的。 */
+  --control-height: 2.25rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -105,6 +110,18 @@
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
+}
+
+/* --control-height 的派生层。刻意与上面的 :root 分开写，有两个原因：
+   1) 编辑器的「导出 CSS」只输出可调令牌（颜色 + --radius + --control-height），
+      用户拿它整块替换上面那个 :root 时，不会把这两条派生量一起删掉；
+   2) 它们是常量公式而不是可调值，运行时覆盖只针对 --control-height，
+      派生量靠 var() 在同一元素上重新求值自动跟随，不需要注入。
+   与 @theme inline 里 --radius-sm/md/lg 相对 --radius 的关系完全同构。
+   增量用 rem 而不是 px：base 是 rem，改浏览器根字号时增量也应等比跟随。 */
+:root {
+  --control-height-sm: calc(var(--control-height) - 0.25rem); /* 32px，旧 h-8 */
+  --control-height-lg: calc(var(--control-height) + 0.25rem); /* 40px，旧 h-10 */
 }
 
 @layer base {

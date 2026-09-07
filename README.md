@@ -113,6 +113,16 @@ CLI 会把源码直接写进 `src/components/ui/`。
 `<style id="theme-overrides">` 即时生效（不刷新页面），并存在 localStorage
 的 `shadcn-ui-theme-config` 下。
 
+可调令牌有三类：24 个 oklch 配色（明暗各一套）、圆角 `--radius`、以及控件基准
+高度 `--control-height`（28–48px，Button / Input / SelectTrigger / TabsList 的
+default 尺寸都由它派生）。后两者只定义在 `:root`、不分明暗，所以是全局的。
+
+`--control-height-sm` / `--control-height-lg` 是 `index.css` 里**单独成块**的派生层
+（`calc(var(--control-height) ∓ 0.25rem)`），不要手改，也刻意不在「导出 CSS」的
+输出范围内 —— 导出的那段是给你整块替换 `:root` 用的，派生层混进去会被一起冲掉。
+Badge（靠 padding 撑高）、Textarea（`field-sizing-content`）、Table 表头（行密度）
+不参与高度缩放。
+
 注入用的选择器是 `html:root:not(.dark)` / `html:root.dark` / `html:root`，
 **靠特异度 (0,2,1) 取胜，不是靠文档顺序**。这一点不能改成朴素的 `:root` / `.dark`：
 `index.css` 里那两块是裸写的、特异度同为 (0,1,0)，`.dark` 仅靠写在后面才赢；

@@ -42,6 +42,17 @@ export function ThemeSections() {
             <Button variant="link">链接</Button>
           </div>
 
+          {/* 四个 size 摆一起，好让「控件高度」滑杆能看出 sm/lg 的派生关系 ——
+              只放 default 的话拖滑杆看不到 ∓0.25rem 那点差别。 */}
+          <div className="flex flex-wrap items-center gap-2">
+            <Button size="sm">小号</Button>
+            <Button>默认</Button>
+            <Button size="lg">大号</Button>
+            <Button size="icon" aria-label="图标按钮">
+              <InfoIcon />
+            </Button>
+          </div>
+
           <div className="flex flex-wrap items-center gap-2">
             <Badge>默认</Badge>
             <Badge variant="secondary">次要</Badge>
@@ -70,7 +81,8 @@ export function ThemeSections() {
             <InfoIcon />
             <AlertTitle>Alert 会跟随 card / border / foreground</AlertTitle>
             <AlertDescription>
-              圆角同时受 --radius 控制，拖动上面的圆角滑杆可以看到这一整块跟着变。
+              圆角受 --radius 控制、控件高度受 --control-height
+              控制，拖动上面两根滑杆都能看到这一整块跟着变。
             </AlertDescription>
           </Alert>
 

@@ -1,9 +1,15 @@
 import * as React from "react"
 
-import { isSafeOklch, isSafeRadius, normalizeOklch } from "@/lib/color"
+import {
+  isSafeControlHeight,
+  isSafeOklch,
+  isSafeRadius,
+  normalizeOklch,
+} from "@/lib/color"
 import type { ThemePreset } from "@/lib/theme-presets"
 import {
   COLOR_TOKENS,
+  DEFAULT_CONTROL_HEIGHT,
   DEFAULT_RADIUS,
   DEFAULTS,
   isColorToken,
@@ -13,6 +19,8 @@ import type { ColorToken, ThemeMode, TokenOverrides } from "@/lib/theme-tokens"
 export const THEME_CONFIG_STORAGE_KEY = "shadcn-ui-theme-config"
 export const THEME_STYLE_ELEMENT_ID = "theme-overrides"
 
+// 只有既有字段的语义或格式变了才升版本 —— 升版本 = 丢弃全部用户配置（没有迁移路径）。
+// 新增 optional 字段不需要升：缺字段回退默认，垃圾值被逐 key 白名单挡掉。
 const CONFIG_VERSION = 1
 
 export type ThemeConfig = {
@@ -21,6 +29,8 @@ export type ThemeConfig = {
   dark: TokenOverrides
   /** --radius 在 index.css 里只定义于 :root、没有 .dark 版本，所以它是全局的，不分模式 */
   radius?: string
+  /** 同 radius：--control-height 只定义于 :root，sm/lg 由它 calc 派生，所以也是全局的 */
+  controlHeight?: string
 }
 
 const EMPTY_CONFIG: ThemeConfig = { v: CONFIG_VERSION, light: {}, dark: {} }
@@ -65,11 +75,18 @@ export function readThemeConfig(): ThemeConfig {
         ? obj.radius
         : undefined
 
+    const controlHeight =
+      typeof obj.controlHeight === "string" &&
+      isSafeControlHeight(obj.controlHeight)
+        ? obj.controlHeight
+        : undefined
+
     return {
       v: CONFIG_VERSION,
       light: sanitizeOverrides(obj.light),
       dark: sanitizeOverrides(obj.dark),
       ...(radius ? { radius } : {}),
+      ...(controlHeight ? { controlHeight } : {}),
     }
   } catch {
     return EMPTY_CONFIG
@@ -110,14 +127,18 @@ function cssBlock(selector: string, entries: [string, string][]): string {
  * 深色时 :not(.dark) 天然不匹配，泄漏在物理上不可能发生。
  */
 export function buildRuntimeCss(config: ThemeConfig): string {
-  const radiusBlock =
-    config.radius && isSafeRadius(config.radius)
-      ? // --radius 必须单独一块。塞进浅色块的话，深色下就没有 radius 覆盖了。
-        cssBlock("html:root", [["radius", config.radius]])
-      : ""
+  // 不分明暗的全局令牌合并成一块 html:root。
+  // 塞进浅色块的话，深色下就没有覆盖了。
+  const globals: [string, string][] = []
+  if (config.radius && isSafeRadius(config.radius)) {
+    globals.push(["radius", config.radius])
+  }
+  if (config.controlHeight && isSafeControlHeight(config.controlHeight)) {
+    globals.push(["control-height", config.controlHeight])
+  }
 
   return (
-    radiusBlock +
+    cssBlock("html:root", globals) +
     cssBlock("html:root:not(.dark)", safeEntries(config.light)) +
     cssBlock("html:root.dark", safeEntries(config.dark))
   )
@@ -137,6 +158,9 @@ export function buildExportCss(config: ThemeConfig): string {
   return [
     ":root {",
     `  --radius: ${config.radius ?? DEFAULT_RADIUS};`,
+    // 只导出 base，不导出 --control-height-sm/lg —— 那两条是 index.css 里
+    // 独立成块的派生层，用户拿这段替换 :root 时不该把它们冲掉。
+    `  --control-height: ${config.controlHeight ?? DEFAULT_CONTROL_HEIGHT};`,
     lines("light"),
     "}",
     "",
@@ -157,11 +181,14 @@ type ThemeConfigState = {
   getToken: (mode: ThemeMode, token: ColorToken) => string
   isOverridden: (mode: ThemeMode, token: ColorToken) => boolean
   radius: string
+  controlHeight: string
   dirty: boolean
   setToken: (mode: ThemeMode, token: ColorToken, value: string) => void
   resetToken: (mode: ThemeMode, token: ColorToken) => void
   setRadius: (value: string) => void
   resetRadius: () => void
+  setControlHeight: (value: string) => void
+  resetControlHeight: () => void
   applyPreset: (preset: ThemePreset) => void
   resetAll: () => void
   exportCss: () => string
@@ -242,21 +269,50 @@ export function ThemeConfigProvider({
     setConfig((prev) => ({ ...prev, radius: value }))
   }, [])
 
-  // 删掉 radius 这个 key，而不是把它写回默认值 —— 否则配置永远是「脏」的，
-  // 注入的 CSS 里也会一直挂着一条毫无意义的覆盖。
-  const resetRadius = React.useCallback(() => {
-    setConfig((prev) => ({ v: prev.v, light: prev.light, dark: prev.dark }))
+  const setControlHeight = React.useCallback((value: string) => {
+    if (!isSafeControlHeight(value)) return
+    setConfig((prev) => ({ ...prev, controlHeight: value }))
   }, [])
+
+  // 全局（不分明暗）令牌的重置：删 key，而不是把它写回默认值 ——
+  // 否则配置永远是「脏」的，注入的 CSS 里也会一直挂着一条毫无意义的覆盖。
+  //
+  // ⚠️ 必须用「拷贝 + delete」而不是重建 { v, light, dark } 白名单对象。
+  // 后者会把此处不认识的其它全局字段一起吞掉，而且是静默的 ——
+  // 它们都是 optional，类型检查不会报错。
+  const clearGlobal = React.useCallback(
+    (key: "radius" | "controlHeight") => {
+      setConfig((prev) => {
+        // 本来就没覆盖时原样返回，省掉一次无意义的重渲染 + localStorage 写入
+        if (prev[key] === undefined) return prev
+        const next = { ...prev }
+        delete next[key]
+        return next
+      })
+    },
+    []
+  )
+
+  const resetRadius = React.useCallback(
+    () => clearGlobal("radius"),
+    [clearGlobal]
+  )
+
+  const resetControlHeight = React.useCallback(
+    () => clearGlobal("controlHeight"),
+    [clearGlobal]
+  )
 
   const applyPreset = React.useCallback((preset: ThemePreset) => {
     // replace 而非 merge：如果 merge，用户先手改了 background 再点预设，
     // 会得到一份「一半新一半旧」、自己也说不清哪来的配色。
-    // radius 是独立维度，预设不碰它。
+    // radius / controlHeight 是独立维度，预设不碰它们。
     setConfig((prev) => ({
       v: CONFIG_VERSION,
       light: { ...preset.light },
       dark: { ...preset.dark },
       ...(prev.radius ? { radius: prev.radius } : {}),
+      ...(prev.controlHeight ? { controlHeight: prev.controlHeight } : {}),
     }))
   }, [])
 
@@ -268,14 +324,18 @@ export function ThemeConfigProvider({
       getToken: (mode, token) => config[mode][token] ?? DEFAULTS[mode][token],
       isOverridden: (mode, token) => config[mode][token] !== undefined,
       radius: config.radius ?? DEFAULT_RADIUS,
+      controlHeight: config.controlHeight ?? DEFAULT_CONTROL_HEIGHT,
       dirty:
         Object.keys(config.light).length > 0 ||
         Object.keys(config.dark).length > 0 ||
-        config.radius !== undefined,
+        config.radius !== undefined ||
+        config.controlHeight !== undefined,
       setToken,
       resetToken,
       setRadius,
       resetRadius,
+      setControlHeight,
+      resetControlHeight,
       applyPreset,
       resetAll,
       exportCss: () => buildExportCss(config),
@@ -286,6 +346,8 @@ export function ThemeConfigProvider({
     resetToken,
     setRadius,
     resetRadius,
+    setControlHeight,
+    resetControlHeight,
     applyPreset,
     resetAll,
   ])

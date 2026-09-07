@@ -72,6 +72,9 @@ export function isColorToken(key: string): key is ColorToken {
 // 这份 DEFAULTS 只服务于滑杆初值、单项重置和导出，不参与实际渲染。
 export const DEFAULT_RADIUS = "0.625rem"
 
+/** 与 src/index.css 手工同步，理由同 DEFAULT_RADIUS。2.25rem = 36px = 旧 h-9 */
+export const DEFAULT_CONTROL_HEIGHT = "2.25rem"
+
 /** 主题令牌只有明暗两套，与 ThemeProvider 的 resolvedTheme 取值一致 */
 export type ThemeMode = "light" | "dark"
 

@@ -17,16 +17,24 @@ import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import {
+  CONTROL_HEIGHT_MAX,
+  CONTROL_HEIGHT_MIN,
+  formatControlHeight,
   formatOklch,
   formatRadius,
   MAX_CHROMA,
   parseOklch,
-  parseRadius,
+  parseRem,
 } from "@/lib/color"
 import type { Oklch } from "@/lib/color"
 import { THEME_PRESETS, presetSwatch } from "@/lib/theme-presets"
 import type { ThemePreset } from "@/lib/theme-presets"
-import { COLOR_TOKENS, DEFAULT_RADIUS, TOKEN_GROUPS } from "@/lib/theme-tokens"
+import {
+  COLOR_TOKENS,
+  DEFAULT_CONTROL_HEIGHT,
+  DEFAULT_RADIUS,
+  TOKEN_GROUPS,
+} from "@/lib/theme-tokens"
 import type { ColorToken, ThemeMode } from "@/lib/theme-tokens"
 import { cn } from "@/lib/utils"
 
@@ -252,6 +260,9 @@ export function ThemeEditor() {
     radius,
     setRadius,
     resetRadius,
+    controlHeight,
+    setControlHeight,
+    resetControlHeight,
     applyPreset,
     resetAll,
     exportCss,
@@ -294,7 +305,9 @@ export function ThemeEditor() {
     )?.id
   }, [config.light, config.dark])
 
-  const radiusRem = parseRadius(radius) ?? parseRadius(DEFAULT_RADIUS) ?? 0
+  const radiusRem = parseRem(radius) ?? parseRem(DEFAULT_RADIUS) ?? 0
+  const controlHeightRem =
+    parseRem(controlHeight) ?? parseRem(DEFAULT_CONTROL_HEIGHT) ?? 2.25
 
   return (
     <div className="flex w-full flex-col gap-6">
@@ -325,7 +338,7 @@ export function ThemeEditor() {
           ))}
         </div>
         <p className="text-muted-foreground text-xs">
-          预设会整体替换配色（不是叠加），圆角设置不受影响。
+          预设会整体替换配色（不是叠加），圆角与控件高度不受影响。
         </p>
       </div>
 
@@ -362,6 +375,48 @@ export function ThemeEditor() {
           --radius 只定义在 :root、没有深浅两套，所以它是全局的。注意
           <code className="font-mono"> rounded-[2px] </code>
           这类任意值（tooltip 箭头、checkbox）是写死的，不参与缩放。
+        </p>
+      </div>
+
+      <Separator />
+
+      {/* ---------------- 控件高度 ---------------- */}
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-sm font-medium">控件高度 --control-height</p>
+          <Badge variant="secondary" className="font-mono">
+            {controlHeight}（≈{Math.round(controlHeightRem * 16)}px）
+          </Badge>
+          {/* 显式 h-8 冻结高度：这颗按钮就在滑杆上面一行，且 size="sm" 的高度
+              本身就受 --control-height-sm 控制 —— 不冻结的话拖滑杆时这一行会
+              跟着长高，滑杆在指针底下上下跳。 */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="ml-auto h-8"
+            disabled={config.controlHeight === undefined}
+            onClick={resetControlHeight}
+          >
+            <RotateCcwIcon className="size-3.5" />
+            恢复默认
+          </Button>
+        </div>
+        <input
+          type="range"
+          className="accent-primary h-1.5 w-full max-w-md cursor-pointer"
+          min={CONTROL_HEIGHT_MIN}
+          max={CONTROL_HEIGHT_MAX}
+          step={0.0625}
+          value={controlHeightRem}
+          onChange={(e) =>
+            setControlHeight(formatControlHeight(e.currentTarget.valueAsNumber))
+          }
+        />
+        <p className="text-muted-foreground text-xs">
+          Button / Input / Select / TabsList 的 default 尺寸从这里派生，sm 与 lg 是
+          <code className="font-mono"> calc(--control-height ∓ 0.25rem) </code>。
+          步长 1px，范围 28–48px。Badge 靠 padding 撑高、Textarea 用
+          field-sizing-content、Table 表头是行密度，三者都不参与。
         </p>
       </div>
 
