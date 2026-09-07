@@ -8,9 +8,17 @@ import { DataDisplaySections } from "@/sections/data-display"
 import { FeedbackSections } from "@/sections/feedback"
 import { FormsSections } from "@/sections/forms"
 import { OverlaySections } from "@/sections/overlays"
+import { ThemeSections } from "@/sections/theme"
 
 // 侧栏导航项与各 Section 的 id 一一对应；新增分区时两处都要改。
 const NAV_GROUPS = [
+  {
+    label: "主题",
+    items: [
+      { id: "theme", label: "Theme 主题" },
+      { id: "theme-preview", label: "实时预览" },
+    ],
+  },
   {
     label: "基础",
     items: [
@@ -102,11 +110,16 @@ function App() {
               <h1 className="text-3xl font-bold tracking-tight">组件画廊</h1>
               <p className="text-muted-foreground">
                 下面每个分区都是一个真实可交互的 shadcn/ui
-                组件。切换右上角主题可同时验证亮色与暗色两套配色。
+                组件。切换右上角主题可同时验证亮色与暗色两套配色，也可以在
+                <a href="#theme" className="underline underline-offset-4">
+                  Theme 主题
+                </a>
+                分区里在线改配色，改动即时生效。
               </p>
             </div>
             <Separator />
 
+            <ThemeSections />
             <BasicsSections />
             <FormsSections />
             <OverlaySections />

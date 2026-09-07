@@ -3,14 +3,14 @@ import { Toaster as Sonner, type ToasterProps } from "sonner"
 
 import { useTheme } from "@/components/theme-provider"
 
-// shadcn 官方版本从 next-themes 取主题；本项目用自己的 ThemeProvider，
-// 这里换成本地 useTheme —— sonner 的 theme 同样接受 "light" | "dark" | "system"。
+// shadcn 官方版本从 next-themes 取主题；本项目用自己的 ThemeProvider。
+// 传 resolvedTheme 而不是 theme，省得 sonner 自己再解析一遍 "system"。
 const Toaster = ({ ...props }: ToasterProps) => {
-  const { theme } = useTheme()
+  const { resolvedTheme } = useTheme()
 
   return (
     <Sonner
-      theme={theme as ToasterProps["theme"]}
+      theme={resolvedTheme}
       className="toaster group"
       style={
         {

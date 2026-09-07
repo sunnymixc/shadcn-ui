@@ -5,6 +5,69 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>shadcn/ui 组件演示</title>
+    <script>
+      // 在 React 挂载之前就把主题定下来，否则会白闪一帧：
+      // ThemeProvider 虽然惰性读了 localStorage，但 .dark class 是在 effect 里加的，
+      // 而自定义配色更是要等 Provider 的 layout effect。
+      // 整段用 try/catch 兜住 —— 这里抛错会直接白屏。
+      ;(function () {
+        try {
+          var root = document.documentElement
+
+          var theme = localStorage.getItem("shadcn-ui-theme") || "system"
+          var resolved =
+            theme === "light" || theme === "dark"
+              ? theme
+              : window.matchMedia("(prefers-color-scheme: dark)").matches
+                ? "dark"
+                : "light"
+          root.classList.add(resolved)
+
+          var raw = localStorage.getItem("shadcn-ui-theme-config")
+          if (!raw) return
+          var cfg = JSON.parse(raw)
+          // 版本号必须与 theme-config-provider.tsx 的 CONFIG_VERSION 一致
+          if (!cfg || cfg.v !== 1) return
+
+          // 这段脚本是最早执行的，白名单校验一步都不能省：值来自 localStorage，
+          // 非法的 oklch 会触发 "invalid at computed-value time"，
+          // 那时 var(--primary) 不会回退到默认值而是变成 initial，按钮会直接消失。
+          var OKLCH = /^oklch\([\d.]+ [\d.]+ [\d.]+( \/ [\d.]+%)?\)$/
+          var RADIUS = /^[\d.]+rem$/
+          var TOKENS = /^(background|foreground|card|card-foreground|popover|popover-foreground|primary|primary-foreground|secondary|secondary-foreground|muted|muted-foreground|accent|accent-foreground|destructive|destructive-foreground|border|input|ring|chart-[1-5])$/
+
+          function block(selector, obj) {
+            if (!obj || typeof obj !== "object") return ""
+            var body = ""
+            for (var k in obj) {
+              if (!Object.prototype.hasOwnProperty.call(obj, k)) continue
+              if (!TOKENS.test(k)) continue
+              if (typeof obj[k] !== "string" || !OKLCH.test(obj[k])) continue
+              body += "--" + k + ": " + obj[k] + ";"
+            }
+            return body ? selector + "{" + body + "}" : ""
+          }
+
+          // 选择器必须与 buildRuntimeCss 完全一致，靠特异度 (0,2,1) 压过
+          // index.css 里裸写的 :root / .dark，而不是靠文档顺序 ——
+          // Vite 之后还会往 head 里插 css，顺序是靠不住的。
+          var css =
+            (RADIUS.test(cfg.radius || "")
+              ? "html:root{--radius:" + cfg.radius + ";}"
+              : "") +
+            block("html:root:not(.dark)", cfg.light) +
+            block("html:root.dark", cfg.dark)
+          if (!css) return
+
+          var el = document.createElement("style")
+          el.id = "theme-overrides"
+          el.textContent = css
+          document.head.appendChild(el)
+        } catch {
+          /* 主题读不出来就用默认的，不影响页面可用 */
+        }
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

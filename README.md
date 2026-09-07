@@ -60,15 +60,22 @@ chmod +x start.sh deploy.sh   # 仅首次：给脚本加可执行权限
 ├── server.mjs            零依赖 Node 静态服务器（生产宿主）
 ├── components.json       shadcn CLI 配置（新增组件用 npx shadcn@latest add）
 ├── vite.config.ts        含 @tailwindcss/vite 插件与 @ 路径别名
+├── index.html            含防 FOUC 内联脚本（首帧就定好明暗与自定义配色）
 ├── src/
 │   ├── index.css         Tailwind v4 入口 + shadcn 主题 CSS 变量
 │   ├── App.tsx           画廊页：侧栏导航 + 各分区
-│   ├── lib/utils.ts      cn() 类名合并工具
+│   ├── lib/
+│   │   ├── utils.ts          cn() 类名合并工具
+│   │   ├── color.ts          oklch 解析 / 序列化 / 安全校验
+│   │   ├── theme-tokens.ts   可编辑令牌清单 + 出厂默认值
+│   │   └── theme-presets.ts  6 套预设配色
 │   ├── components/
 │   │   ├── ui/           shadcn 组件源码（20 个）
-│   │   ├── theme-provider.tsx  明暗主题 Context（localStorage + matchMedia）
-│   │   ├── mode-toggle.tsx     右上角主题切换
-│   │   └── section.tsx         分区外壳
+│   │   ├── theme-provider.tsx        明暗主题 Context（localStorage + matchMedia）
+│   │   ├── theme-config-provider.tsx 自定义配色 Context + 运行时 CSS 变量注入
+│   │   ├── theme-editor.tsx          Theme 分区里的主题编辑器
+│   │   ├── mode-toggle.tsx           右上角主题切换
+│   │   └── section.tsx               分区外壳
 │   └── sections/         各组件的演示分区
 ├── dist/                 构建产物（gitignore）
 └── logs/                 运行 / 构建 / 安装日志（gitignore）
@@ -99,3 +106,19 @@ CLI 会把源码直接写进 `src/components/ui/`。
   与 `:root` / `.dark` 里。暗色变体依赖 `@custom-variant dark (&:is(.dark *));` 这一行，
   删掉它主题切换会失效。
 - 首次启动请**串行**执行两个脚本（npm 没有跨进程锁，并发 `npm install` 会互相破坏）。
+
+## 主题编辑（Theme 分区）
+
+页面顶部的 **Theme 主题** 分区可以在线改全部设计令牌，改动通过注入
+`<style id="theme-overrides">` 即时生效（不刷新页面），并存在 localStorage
+的 `shadcn-ui-theme-config` 下。
+
+注入用的选择器是 `html:root:not(.dark)` / `html:root.dark` / `html:root`，
+**靠特异度 (0,2,1) 取胜，不是靠文档顺序**。这一点不能改成朴素的 `:root` / `.dark`：
+`index.css` 里那两块是裸写的、特异度同为 (0,1,0)，`.dark` 仅靠写在后面才赢；
+注入的 `<style>` 排在它之后，若也写 `:root`，深色模式下会反过来压住 `.dark`，
+导致「只改了浅色、深色跟着变」。dev 用 `<style>` 注入、prod 用 `<link>`，
+head 顺序本来就不一致，所以顺序是靠不住的。
+
+万一配色改到页面无法阅读，在控制台执行
+`localStorage.removeItem("shadcn-ui-theme-config")` 后刷新即可。

@@ -10,6 +10,9 @@
    用 inline 是为了让令牌解析到 var(--x) 而不是把值烘死，
    从而 .dark 覆盖 --x 时所有工具类跟着变。 */
 @theme inline {
+  /* xs 不在 shadcn 默认清单里，但 dialog 的关闭按钮用了 rounded-xs；
+     不补这一条它会落到 Tailwind 内置的固定 0.125rem，不跟随 --radius 缩放。 */
+  --radius-xs: calc(var(--radius) - 6px);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -41,7 +44,14 @@
   --color-chart-5: var(--chart-5);
 }
 
+/* 注意：下面的 :root 与 .dark 必须保持「裸写」（不包 @layer）。
+   Tailwind v4 把自己的产物全放进了 theme/base/components/utilities 四层，
+   裸样式赢所有 layer —— 这两块正是靠这一点覆盖掉 Tailwind 的默认令牌。
+   同时也意味着二者特异度相等 (0,1,0)、.dark 仅靠写在后面取胜，
+   所以运行时主题覆盖必须用更高特异度的选择器，见 theme-config-provider.tsx。 */
 :root {
+  /* 告诉浏览器当前配色，原生控件（range 滑杆、滚动条）才会切换深浅皮肤 */
+  color-scheme: light;
   --radius: 0.625rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
@@ -70,6 +80,7 @@
 }
 
 .dark {
+  color-scheme: dark;
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);

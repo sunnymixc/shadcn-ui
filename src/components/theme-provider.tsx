@@ -1,6 +1,7 @@
 import * as React from "react"
 
 export type Theme = "dark" | "light" | "system"
+export type ResolvedTheme = "dark" | "light"
 
 type ThemeProviderProps = {
   children: React.ReactNode
@@ -10,11 +11,16 @@ type ThemeProviderProps = {
 
 type ThemeProviderState = {
   theme: Theme
+  /** theme 为 "system" 时解析出来的实际模式，永远只会是 light / dark */
+  resolvedTheme: ResolvedTheme
   setTheme: (theme: Theme) => void
 }
 
+const DARK_QUERY = "(prefers-color-scheme: dark)"
+
 const ThemeProviderContext = React.createContext<ThemeProviderState>({
   theme: "system",
+  resolvedTheme: "light",
   setTheme: () => null,
 })
 
@@ -31,40 +37,43 @@ export function ThemeProvider({
     return (localStorage.getItem(storageKey) as Theme) || defaultTheme
   })
 
+  const [systemDark, setSystemDark] = React.useState(() => {
+    if (typeof window === "undefined") return false
+    return window.matchMedia(DARK_QUERY).matches
+  })
+
+  // 无条件订阅，而不是只在 theme === "system" 时订阅：
+  // systemDark 只是一份「系统当前是什么」的镜像，不参与决定显式选择，
+  // 因此常年保鲜是安全的；反过来只在 system 模式订阅的话，
+  // 用户 light → 系统切深色 → 再切回 system 时会先读到一份陈旧值。
+  React.useEffect(() => {
+    const mql = window.matchMedia(DARK_QUERY)
+    const onChange = (e: MediaQueryListEvent) => setSystemDark(e.matches)
+    setSystemDark(mql.matches)
+    mql.addEventListener("change", onChange)
+    return () => mql.removeEventListener("change", onChange)
+  }, [])
+
+  // 派生而非 state：少一次渲染，也不会在 StrictMode 下抖动。
+  const resolvedTheme: ResolvedTheme =
+    theme === "system" ? (systemDark ? "dark" : "light") : theme
+
   React.useEffect(() => {
     const root = window.document.documentElement
-
-    const apply = () => {
-      root.classList.remove("light", "dark")
-      const resolved =
-        theme === "system"
-          ? window.matchMedia("(prefers-color-scheme: dark)").matches
-            ? "dark"
-            : "light"
-          : theme
-      root.classList.add(resolved)
-    }
-
-    apply()
-
-    if (theme !== "system") return
-
-    // 只有 system 模式才需要跟随系统变化；显式选了 light/dark 时监听是多余的，
-    // 而且会在用户切换系统外观时错误地覆盖他的显式选择。
-    const mql = window.matchMedia("(prefers-color-scheme: dark)")
-    mql.addEventListener("change", apply)
-    return () => mql.removeEventListener("change", apply)
-  }, [theme])
+    root.classList.remove("light", "dark")
+    root.classList.add(resolvedTheme)
+  }, [resolvedTheme])
 
   const value = React.useMemo<ThemeProviderState>(
     () => ({
       theme,
+      resolvedTheme,
       setTheme: (next: Theme) => {
         localStorage.setItem(storageKey, next)
         setThemeState(next)
       },
     }),
-    [theme, storageKey]
+    [theme, resolvedTheme, storageKey]
   )
 
   return (
@@ -75,9 +84,5 @@ export function ThemeProvider({
 }
 
 export function useTheme() {
-  const context = React.useContext(ThemeProviderContext)
-  if (context === undefined) {
-    throw new Error("useTheme 必须在 ThemeProvider 内部使用")
-  }
-  return context
+  return React.useContext(ThemeProviderContext)
 }
