@@ -1,5 +1,6 @@
 import { ModeToggle } from "@/components/mode-toggle"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
@@ -75,6 +76,9 @@ function App() {
               <span className="text-muted-foreground hidden text-sm sm:inline">
                 Tailwind v4
               </span>
+              <Button variant="ghost" size="sm" asChild>
+                <a href="/sidebar">Sidebar 演示</a>
+              </Button>
               <ModeToggle />
             </div>
           </div>

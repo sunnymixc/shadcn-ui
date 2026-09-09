@@ -63,14 +63,20 @@ chmod +x start.sh deploy.sh   # 仅首次：给脚本加可执行权限
 ├── index.html            含防 FOUC 内联脚本（首帧就定好明暗与自定义配色）
 ├── src/
 │   ├── index.css         Tailwind v4 入口 + shadcn 主题 CSS 变量
+│   ├── main.tsx          入口 + 按 pathname 的两页分发（/ 与 /sidebar）
 │   ├── App.tsx           画廊页：侧栏导航 + 各分区
+│   ├── pages/
+│   │   └── sidebar.tsx   /sidebar 独立页：官方 block sidebar-08 的复刻
+│   ├── hooks/
+│   │   └── use-mobile.ts 768px 断点的媒体查询 hook（sidebar 移动端抽屉用）
 │   ├── lib/
 │   │   ├── utils.ts          cn() 类名合并工具
 │   │   ├── color.ts          oklch 解析 / 序列化 / 安全校验
 │   │   ├── theme-tokens.ts   可编辑令牌清单 + 出厂默认值
 │   │   └── theme-presets.ts  6 套预设配色
 │   ├── components/
-│   │   ├── ui/           shadcn 组件源码（20 个）
+│   │   ├── ui/           shadcn 组件源码（24 个）
+│   │   ├── sidebar-08/   官方 block sidebar-08 的 5 个块组件（仅 /sidebar 使用）
 │   │   ├── theme-provider.tsx        明暗主题 Context（localStorage + matchMedia）
 │   │   ├── theme-config-provider.tsx 自定义配色 Context + 运行时 CSS 变量注入
 │   │   ├── theme-editor.tsx          Theme 分区里的主题编辑器
@@ -80,6 +86,23 @@ chmod +x start.sh deploy.sh   # 仅首次：给脚本加可执行权限
 ├── dist/                 构建产物（gitignore）
 └── logs/                 运行 / 构建 / 安装日志（gitignore）
 ```
+
+## 路由
+
+全站只有两个页面，`src/main.tsx` 直接按 `window.location.pathname` 二选一渲染，
+**没有引入路由库**：
+
+| 路径 | 页面 |
+| --- | --- |
+| `/` | `src/App.tsx` 组件画廊（内部靠 hash 锚点导航） |
+| `/sidebar`（含尾斜杠） | `src/pages/sidebar.tsx`，官方 block sidebar-08 |
+
+两页之间用普通 `<a href>` 整页跳转，cmd+click / 前进后退 / 直接粘链接天然可用。
+dev 由 Vite 的 SPA fallback 兜底，prod 由 `server.mjs` 的 `isRouteLike()` 兜底，
+两边都不需要额外配置。页面变多时把这几行换成 `<BrowserRouter>` 即可，
+当前写法没有引入任何需要先拆掉的抽象。
+
+`ThemeProvider` / `ThemeConfigProvider` 仍在最外层，两个页面共享明暗主题与自定义配色。
 
 ## server.mjs 的行为
 

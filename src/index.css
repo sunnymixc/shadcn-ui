@@ -42,6 +42,17 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
+
+  /* sidebar 组件自成一套配色（bg-sidebar / hover:bg-sidebar-accent 等），
+     令牌值见下方独立的 :root/.dark 块。 */
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
 }
 
 /* 注意：下面的 :root 与 .dark 必须保持「裸写」（不包 @layer）。
@@ -122,6 +133,37 @@
 :root {
   --control-height-sm: calc(var(--control-height) - 0.25rem); /* 32px，旧 h-8 */
   --control-height-lg: calc(var(--control-height) + 0.25rem); /* 40px，旧 h-10 */
+}
+
+/* sidebar 令牌的派生层，同样刻意与上面的主 :root/.dark 分开写：
+   1) 编辑器的 buildExportCss() 只输出 COLOR_TOKENS 白名单里的令牌，
+      用户拿导出结果整块替换上面的 :root/.dark 时不应把这里一起冲掉；
+   2) 除 --sidebar 外全部写成 var(...) 派生式，因此能自动跟随主题编辑器：
+      编辑器注入的 html:root:not(.dark) / html:root.dark 特异度更高，赢下
+      --accent 等令牌在 <html> 上的取值，而这里是在同一个元素上做 computed-value
+      求值，拿到的就是覆盖后的值 —— 所以 theme-tokens.ts / theme-presets.ts /
+      index.html 的 TOKENS 正则都不需要改，sidebar 令牌不进白名单。
+   --sidebar 必须写字面量：variant="inset" 靠它与 --background 的明暗差显出内嵌卡片，
+   而这个差浅色是「侧栏更暗」、深色是「侧栏更亮」，方向相反，一条公式表达不了。
+   数值取自 shadcn neutral 官方基色。顺序不能反，.dark 与 :root 特异度同为 (0,1,0)。 */
+:root {
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+}
+
+.dark {
+  --sidebar: oklch(0.205 0 0);
+  /* 官方深色的 Logo 底色是蓝 oklch(0.488 0.243 264.376)，恰好等于本仓库 dark 的
+     --chart-1；用 var(--chart-1) 既与官方一致，又能跟随编辑器。
+     前景色官方是 0.985，等于 dark 的 --foreground（而非 --primary-foreground 的 0.205）。 */
+  --sidebar-primary: var(--chart-1);
+  --sidebar-primary-foreground: var(--foreground);
 }
 
 @layer base {
